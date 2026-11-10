@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fdrop",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["--hot", "src/server.ts"],
+      "port": 3000,
+      "url": "http://fdrop.localhost:3000"
+    },
+    {
+      "name": "fdrop-noauth",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["AUTH_DISABLED=1", "DATA_DIR=./data/noauth", "MAX_UPLOAD_MB=5", "bun", "--hot", "src/server.ts"],
+      "port": 3000,
+      "url": "http://fdrop.localhost:3000"
+    }
+  ]
+}

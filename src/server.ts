@@ -4,9 +4,16 @@ import { startCleanupTimer } from "./cleanup";
 import { config } from "./config";
 import { deleteFile, downloadFile, listFiles, uploadFile, type User } from "./files";
 import app from "./web/index.html";
+import fontLatinExt from "@fontsource-variable/archivo/files/archivo-latin-ext-wdth-normal.woff2" with { type: "file" };
+import fontLatin from "@fontsource-variable/archivo/files/archivo-latin-wdth-normal.woff2" with { type: "file" };
 
 const unauthorized = () => Response.json({ error: "Sign in required." }, { status: 401 });
 const forbidden = () => Response.json({ error: "Cross-origin request refused." }, { status: 403 });
+
+const font = (path: string) => () =>
+  new Response(Bun.file(path), {
+    headers: { "Content-Type": "font/woff2", "Cache-Control": "public, max-age=31536000, immutable" },
+  });
 
 /** Require a signed-in user. */
 function authed<R extends Request>(handler: (req: R, user: User) => Response | Promise<Response>) {
@@ -34,6 +41,9 @@ const server = Bun.serve({
     "/": app,
 
     "/healthz": new Response("ok"),
+
+    "/fonts/archivo-latin.woff2": font(fontLatin),
+    "/fonts/archivo-latin-ext.woff2": font(fontLatinExt),
 
     "/auth/login": { GET: () => login() },
     "/auth/callback": { GET: (req) => callback(req) },

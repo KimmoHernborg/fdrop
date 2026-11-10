@@ -1,0 +1,20 @@
+services:
+  fdrop:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      BASE_URL: ${BASE_URL:?set BASE_URL to the public URL, e.g. https://fdrop.example.com}
+      OIDC_ISSUER: ${OIDC_ISSUER:?set OIDC_ISSUER to your Pocket ID URL}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?set OIDC_CLIENT_SECRET}
+      RETENTION_DAYS: ${RETENTION_DAYS:-7}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-1024}
+      SESSION_DAYS: ${SESSION_DAYS:-30}
+      CLEANUP_INTERVAL_MINUTES: ${CLEANUP_INTERVAL_MINUTES:-15}
+    volumes:
+      - fdrop-data:/data
+
+volumes:
+  fdrop-data:

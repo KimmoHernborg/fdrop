@@ -77,3 +77,7 @@ Things to get right behind a reverse proxy:
 - An expired link returns 404 immediately, even if the sweep has not run yet.
 
 Not included: resumable uploads, range requests, per-file passwords, admin view.
+
+## License
+
+[MIT](LICENSE)

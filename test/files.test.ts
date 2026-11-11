@@ -96,6 +96,32 @@ describe("cleanup", () => {
     expect((await downloadFile(live.id, "live.txt")).status).toBe(200);
   });
 
+  test("never removes the folder of an upload that is still in progress", async () => {
+    const before = new Set(readdirSync(config.filesDir));
+    let send!: ReadableStreamDefaultController<Uint8Array>;
+    const body = new ReadableStream<Uint8Array>({ start: (controller) => void (send = controller) });
+    const pending = uploadFile(
+      new Request("http://fdrop.test/api/files?name=slow.bin", { method: "PUT", body }),
+      alice,
+    );
+    send.enqueue(new TextEncoder().encode("first half, "));
+    await Bun.sleep(50);
+
+    const [id] = readdirSync(config.filesDir).filter((name) => !before.has(name));
+    expect(id).toBeDefined();
+
+    // Two hours later the folder is past the orphan grace period and still has no row.
+    const result = await runCleanup(Date.now() + 2 * 60 * 60 * 1000);
+    expect(result.orphanDirs).toBe(0);
+    expect(existsSync(fileDir(id!))).toBe(true);
+
+    send.enqueue(new TextEncoder().encode("second half"));
+    send.close();
+    const res = await pending;
+    expect(res.status).toBe(201);
+    expect(await (await downloadFile(id!, "slow.bin")).text()).toBe("first half, second half");
+  });
+
   test("removes stale empty and orphaned folders but not fresh ones", async () => {
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
     const staleEmpty = join(config.filesDir, "stale-empty");

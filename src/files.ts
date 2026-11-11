@@ -21,6 +21,10 @@ const selectByOwner = db.query<FileRow, [string, number]>(
 const selectById = db.query<FileRow, [string]>("SELECT * FROM files WHERE id = ?");
 const deleteById = db.query("DELETE FROM files WHERE id = ?");
 
+/** IDs of uploads still being written: they have a folder on disk but no database row yet. */
+const activeUploads = new Set<string>();
+export const isUploading = (id: string) => activeUploads.has(id);
+
 export const fileDir = (id: string) => join(config.filesDir, id);
 export const filePath = (row: Pick<FileRow, "id" | "filename">) => join(fileDir(row.id), row.filename);
 
@@ -67,33 +71,39 @@ export async function uploadFile(req: Request, user: User): Promise<Response> {
     expires_at: Date.now() + config.retentionMs,
   };
 
-  await mkdir(fileDir(id), { recursive: true });
-  const writer = Bun.file(filePath(row)).writer();
+  // Until the row exists, this is what tells the cleanup sweep the folder is in use.
+  activeUploads.add(id);
   try {
-    if (req.body) {
-      for await (const chunk of req.body) {
-        row.size += chunk.byteLength;
-        if (row.size > config.maxUploadBytes) {
-          await writer.end();
-          await removeFileDir(id);
-          return tooLarge();
+    await mkdir(fileDir(id), { recursive: true });
+    const writer = Bun.file(filePath(row)).writer();
+    try {
+      if (req.body) {
+        for await (const chunk of req.body) {
+          row.size += chunk.byteLength;
+          if (row.size > config.maxUploadBytes) {
+            await writer.end();
+            await removeFileDir(id);
+            return tooLarge();
+          }
+          writer.write(chunk);
+          // Apply backpressure so a fast client cannot fill memory.
+          await writer.flush();
         }
-        writer.write(chunk);
-        // Apply backpressure so a fast client cannot fill memory.
-        await writer.flush();
       }
+      await writer.end();
+    } catch (cause) {
+      // Client went away or the disk failed: leave nothing behind.
+      await Promise.resolve(writer.end()).catch(() => {});
+      await removeFileDir(id);
+      console.error(`upload of "${filename}" failed:`, cause);
+      return error(400, "Upload was interrupted.");
     }
-    await writer.end();
-  } catch (cause) {
-    // Client went away or the disk failed: leave nothing behind.
-    await Promise.resolve(writer.end()).catch(() => {});
-    await removeFileDir(id);
-    console.error(`upload of "${filename}" failed:`, cause);
-    return error(400, "Upload was interrupted.");
-  }
 
-  insertFile.run({ ...row });
-  return Response.json(toJson(row), { status: 201 });
+    insertFile.run({ ...row });
+    return Response.json(toJson(row), { status: 201 });
+  } finally {
+    activeUploads.delete(id);
+  }
 }
 
 export async function deleteFile(id: string, user: User): Promise<Response> {

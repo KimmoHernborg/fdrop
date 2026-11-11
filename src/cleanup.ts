@@ -2,7 +2,7 @@ import { readdir, rm, rmdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { config } from "./config";
 import { db } from "./db";
-import { removeFileDir } from "./files";
+import { isUploading, removeFileDir } from "./files";
 
 /** Folders without a database row are left alone this long, so in-flight uploads survive. */
 const ORPHAN_GRACE_MS = 60 * 60 * 1000;
@@ -35,7 +35,8 @@ export async function runCleanup(now = Date.now()): Promise<CleanupResult> {
     if (!entry.isDirectory()) continue;
     const dir = join(config.filesDir, entry.name);
     try {
-      const tracked = fileExists.get(entry.name) !== null;
+      // An upload in progress has no row yet but must never be swept, however long it takes.
+      const tracked = fileExists.get(entry.name) !== null || isUploading(entry.name);
       const fresh = now - (await stat(dir)).mtimeMs < ORPHAN_GRACE_MS;
       if ((await readdir(dir)).length === 0) {
         // An empty folder is either an upload that is just starting or leftover junk.

@@ -59,7 +59,7 @@ docker compose up -d --build
 
 The compose file reads the variables above from the environment or a `.env` file next to it, and keeps data in
 the `fdrop-data` volume. On Dokploy, create a Compose application from this repository, set the variables in
-its Environment tab, and point a domain at port 3000.
+its Environment tab, and point a domain at `PORT` (3000 by default).
 
 Things to get right behind a reverse proxy:
 

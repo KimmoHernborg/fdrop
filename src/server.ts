@@ -6,6 +6,10 @@ import { deleteFile, downloadFile, listFiles, uploadFile, type User } from "./fi
 import app from "./web/index.html";
 import fontLatinExt from "@fontsource-variable/archivo/files/archivo-latin-ext-wdth-normal.woff2" with { type: "file" };
 import fontLatin from "@fontsource-variable/archivo/files/archivo-latin-wdth-normal.woff2" with { type: "file" };
+import androidChrome192 from "./web/icons/android-chrome-192x192.png" with { type: "file" };
+import androidChrome512 from "./web/icons/android-chrome-512x512.png" with { type: "file" };
+import appleTouchIcon from "./web/icons/apple-touch-icon.png" with { type: "file" };
+import faviconIco from "./web/icons/favicon.ico" with { type: "file" };
 
 const unauthorized = () => Response.json({ error: "Sign in required." }, { status: 401 });
 const forbidden = () => Response.json({ error: "Cross-origin request refused." }, { status: 403 });
@@ -13,6 +17,14 @@ const forbidden = () => Response.json({ error: "Cross-origin request refused." }
 const font = (path: string) => () =>
   new Response(Bun.file(path), {
     headers: { "Content-Type": "font/woff2", "Cache-Control": "public, max-age=31536000, immutable" },
+  });
+
+// The page links its icons through the bundler (hashed URLs). These fixed URLs are for
+// requests that bypass the page: browsers probing /favicon.ico and /apple-touch-icon.png,
+// and the icon paths listed in site.webmanifest. Fixed URLs, so only a day of caching.
+const icon = (path: string, type = "image/png") => () =>
+  new Response(Bun.file(path), {
+    headers: { "Content-Type": type, "Cache-Control": "public, max-age=86400" },
   });
 
 /** Require a signed-in user. */
@@ -44,6 +56,11 @@ const server = Bun.serve({
 
     "/fonts/archivo-latin.woff2": font(fontLatin),
     "/fonts/archivo-latin-ext.woff2": font(fontLatinExt),
+
+    "/favicon.ico": icon(faviconIco, "image/x-icon"),
+    "/apple-touch-icon.png": icon(appleTouchIcon),
+    "/android-chrome-192x192.png": icon(androidChrome192),
+    "/android-chrome-512x512.png": icon(androidChrome512),
 
     "/auth/login": { GET: () => login() },
     "/auth/callback": { GET: (req) => callback(req) },
